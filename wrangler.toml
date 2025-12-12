@@ -1,4 +1,4 @@
-name = "stream-player"
+name = "hls-proxy-worker"
 main = "src/index.js"
 compatibility_date = "2024-12-12"
 account_id = "f700a4562154ead08fcc94fed4e666de"
