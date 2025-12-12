@@ -51,7 +51,7 @@ async function handleRequest(request) {
     const title = id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     
     const storageKey = `player:${id}:${server}:${type}`
-  
+
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +59,7 @@ async function handleRequest(request) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>${title}</title>
   <style>
@@ -112,15 +112,6 @@ async function handleRequest(request) {
   .menu-item:hover { background:rgba(255,255,255,0.1); }
   .menu-item.active { color:#e50914; font-weight:600; }
   
-  /* Spinner removed for better performance */
-  
-  /* Branding overlay removed for faster loading */
-  
-  /* Gesture zones */
-  #zoneLeft, #zoneRight { position:absolute; top:0; bottom:0; width:35%; cursor:pointer; }
-  #zoneLeft { left:0; }
-  #zoneRight { right:0; }
-  
   /* Mobile-first tweaks */
   @media (max-width: 768px) {
   #controls { padding:20px 12px calc(30px + env(safe-area-inset-bottom)); }
@@ -136,7 +127,6 @@ async function handleRequest(request) {
   #volumeContainer { display:none; }
   #audioMenu, #qualityMenu, #speedMenu { position:fixed; left:0; right:0; bottom:0; border-radius:20px 20px 0 0; padding-bottom:calc(20px + env(safe-area-inset-bottom)); margin:0; max-height:50vh; backdrop-filter:blur(10px); }
   .audio-item, .menu-item { padding:18px 24px; font-size:16px; }
-  #zoneLeft, #zoneRight { width:50%; }
   }
   
   /* Control layout */
@@ -154,22 +144,10 @@ async function handleRequest(request) {
   #mobilePlayToggle .play-icon { display:block; }
   #mobilePlayToggle .pause-icon { display:none; }
   .left, .right { display:flex; align-items:center; gap:12px; }
-  
-  /* Seek badges (Netflix-like) */
-  .seek-badge { position:absolute; top:50%; transform:translateY(-50%); color:#fff; font-weight:700; font-size:52px; opacity:0; pointer-events:none; text-shadow:0 4px 10px rgba(0,0,0,0.6); display:flex; align-items:center; gap:10px; filter:drop-shadow(0 8px 24px rgba(0,0,0,0.6)); }
-  .seek-badge.left { left:10%; }
-  .seek-badge.right { right:10%; }
-  .seek-badge svg { width:48px; height:48px; }
-  @keyframes seek-pop { 0% { opacity:0; transform:translateY(-50%) scale(0.9) } 10% { opacity:1; transform:translateY(-50%) scale(1) } 80% { opacity:1 } 100% { opacity:0; transform:translateY(-50%) scale(1) } }
-  .seek-badge.show { animation:seek-pop 700ms ease; }
-  
-  /* Rotate overlay for mobile portrait while in fullscreen */
-  #rotateOverlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); color:#fff; text-align:center; padding:24px; font-size:18px; }
-  #rotateOverlay .box { background:#111; border:1px solid #222; border-radius:12px; padding:18px 22px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  </head>
-  <body>
+</head>
+<body>
   <div id="player">
   <video id="video" autoplay muted preload="auto" playsinline webkit-playsinline x5-playsinline></video>
   <div id="overlay">${title}</div>
@@ -179,23 +157,6 @@ async function handleRequest(request) {
       <path d="M8 5v14l11-7z"/>
     </svg>
   </button>
-  <div id="spinner"></div>
-  <div id="brandingOverlay">
-  <div class="logo">HiroXStream</div>
-  <div class="pulse"></div>
-  <div class="tagline">Loading Experience</div>
-  </div>
-  <div id="zoneLeft"></div>
-  <div id="zoneRight"></div>
-  <div id="seekBadgeLeft" class="seek-badge left">
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-  <span>-10s</span>
-  </div>
-  <div id="seekBadgeRight" class="seek-badge right">
-  <span>+10s</span>
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8.59 16.59 1.41 1.41L16 12l-5.99-6L8.6 7.41 13.17 12z"/></svg>
-  </div>
-  <div id="rotateOverlay"><div class="box">Rotate your device for the best experience</div></div>
   <div id="controls">
   <div id="seekContainer"><div id="seekProgress"></div></div>
   <div class="controls-bottom">
@@ -247,13 +208,6 @@ async function handleRequest(request) {
   const speedBtn = document.getElementById("speedBtn");
   const speedMenu = document.getElementById("speedMenu");
   const pipBtn = document.getElementById("pipBtn");
-  const spinner = document.getElementById("spinner");
-  const brandingOverlay = document.getElementById("brandingOverlay");
-  const zoneLeft = document.getElementById("zoneLeft");
-  const zoneRight = document.getElementById("zoneRight");
-  const seekBadgeLeft = document.getElementById("seekBadgeLeft");
-  const seekBadgeRight = document.getElementById("seekBadgeRight");
-  const rotateOverlay = document.getElementById("rotateOverlay");
   const muteBtn = document.getElementById("muteBtn");
   const volume = document.getElementById("volume");
   const timeLabel = document.getElementById("timeLabel");
@@ -265,98 +219,18 @@ async function handleRequest(request) {
   const mobileFullscreen = document.getElementById("mobileFullscreen");
   const player = document.getElementById("player");
   const body = document.body;
+  
   const initialStreamUrl = ${JSON.stringify(videoLink)};
   const subtitleTracks = ${JSON.stringify(tracks)};
   const introData = ${JSON.stringify(intro)};
   const outroData = ${JSON.stringify(outro)};
   const storageKey = ${JSON.stringify(storageKey)};
   
-  let wakeLockSentinel = null;
-  async function requestWakeLock(){
-  try {
-  if ('wakeLock' in navigator && navigator.wakeLock?.request){
-  wakeLockSentinel = await navigator.wakeLock.request('screen');
-  wakeLockSentinel?.addEventListener('release', () => {
-  wakeLockSentinel = null;
-  });
-  }
-  } catch(_err) {
-  wakeLockSentinel = null;
-  }
-  }
-  
-  async function releaseWakeLock(){
-  try {
-  if (wakeLockSentinel){
-  await wakeLockSentinel.release();
-  wakeLockSentinel = null;
-  }
-  } catch(_err) {
-  wakeLockSentinel = null;
-  }
-  }
-  
   let currentStreamUrl = initialStreamUrl;
-  let resumeAfterPortrait = false;
-  let orientationForcedPause = false;
-  
-  // Ensure inline playback on mobile browsers and keep custom controls active
-  video.setAttribute('playsinline', 'true');
-  video.setAttribute('webkit-playsinline', 'true');
-  video.setAttribute('x5-playsinline', 'true');
-  video.setAttribute('preload', 'auto');
-  video.setAttribute('muted', '');
-  video.muted = true;
-  video.preload = 'auto';
-  video.playsInline = true;
-  video.controls = false;
-  
   let hls = null;
-  let audioSelect = null;
   let controlsHideTimer = null;
   
-  // Mobile landscape helper
-  function isMobileCoarse(){
-  try {
-  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
-  return true
-  }
-  } catch(_e){}
-  const maxTouch = Number(navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0)
-  if (maxTouch > 1){
-  return true
-  }
-  const ua = (navigator.userAgent || navigator.vendor || '').toLowerCase()
-  if (/iphone|ipad|ipod|android|mobile|mobi|silk|kindle|blackberry|bb10/.test(ua)){
-  return true
-  }
-  return false
-  }
-  async function lockLandscapeIfPossible(){
-  if (!isMobileCoarse()) return
-  try {
-  if (screen.orientation && screen.orientation.lock){ await screen.orientation.lock('landscape') }
-  } catch(_e){}
-  }
-  function unlockOrientationIfPossible(){
-  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock() } catch(_e){}
-  }
-  
-  function updateOrientationUI(){
-  if (!isMobileCoarse()) return
-  const isFs = isFullscreenActive()
-  const isPortrait = window.innerHeight > window.innerWidth
-  const shouldBlock = isFs && isPortrait
-  rotateOverlay.style.display = shouldBlock ? 'flex' : 'none'
-  if (shouldBlock){
-  if (!video.paused){ video.pause() }
-  } else {
-  if (mobilePlayToggle && mobilePlayToggle.classList.contains('active') && video.paused){
-  video.play().catch(()=>{})
-  }
-  }
-  }
-  
+  // Subtitle functions
   function buildSubtitleMenu(){
     audioMenu.innerHTML = '';
     
@@ -392,6 +266,7 @@ async function handleRequest(request) {
     });
   }
   
+  // Player initialization
   function initPlayer(){
     if (window.Hls && Hls.isSupported()){
       hls = new Hls({
@@ -437,345 +312,101 @@ async function handleRequest(request) {
       addSubtitleTracks();
       buildSubtitleMenu();
     } else {
-      return new Response('HLS not supported', { status: 400 });
+      console.error('HLS not supported');
     }
-  }ers[key]
-  if (value){ xhr.setRequestHeader(key, value) }
-  })
-  }
-  }
-  })
-  hls.config.autoStartLoad = true
-  showBranding()
-  hls.loadSource(currentStreamUrl || initialStreamUrl)
-  hls.attachMedia(video)
-  
-  hls.on(Hls.Events.MANIFEST_PARSED, () => {
-  buildAudioListFromHls()
-  })
-  
-  // In case tracks update after start
-  hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
-  buildAudioListFromHls()
-  })
-  
-  // Keep the UI in sync if track is switched programmatically
-  hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_, data) => {
-  if (data && typeof data.id === 'number'){
-  buildAudioListFromHls()
-  }
-  })
-  
-  audioMenu.addEventListener('click', (e) => {
-  const item = e.target && e.target.closest ? e.target.closest('.audio-item') : null
-  if (!item) return
-  const id = parseInt(item.dataset.index, 10)
-  if (Array.isArray(streamVariants) && streamVariants.length){
-  switchStreamVariant(id)
-  return
-  }
-  const lockedLevel = hls.currentLevel
-  hls.audioTrack = id
-  if (lockedLevel !== undefined && lockedLevel !== null && lockedLevel >= 0){
-  hls.currentLevel = lockedLevel
-  }
-  buildAudioListFromHls()
-  if (!video.paused){ video.play().catch(()=>{}) }
-  })
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-  // Safari / iOS: use native HLS
-  video.src = currentStreamUrl || initialStreamUrl
-  video.addEventListener('loadedmetadata', () => {
-  buildAudioListFromNative()
-  })
-  audioMenu.addEventListener('click', (e) => {
-  const item = e.target && e.target.closest ? e.target.closest('.audio-item') : null
-  if (!item) return
-  const idx = parseInt(item.dataset.index, 10)
-  if (Array.isArray(streamVariants) && streamVariants.length){
-  switchStreamVariant(idx)
-  return
-  }
-  const aTracks = video.audioTracks || []
-  for (let i = 0; i < aTracks.length; i++){
-  aTracks[i].enabled = (i === idx)
-  }
-  buildAudioListFromNative()
-  if (!video.paused){ video.play().catch(()=>{}) }
-  })
-  } else {
-  // Fallback: try setting src anyway
-  video.src = currentStreamUrl || initialStreamUrl
-  }
   }
   
-  initPlayer()
-  
-  // Center play toggle
+  // Play/pause controls
   function togglePlay(){
-  if(video.paused){
-  const playPromise = video.play()
-  if (playPromise && typeof playPromise.then === 'function'){
-  playPromise.catch((err)=>{
-  console.debug('Video play blocked', err)
-  showControls()
-  centerPlay.style.display='flex'
-  if (mobilePlayToggle){
-  mobilePlayToggle.textContent = '▶'
-  mobilePlayToggle.classList.remove('active')
+    if(video.paused){
+      video.play().catch(console.error);
+    } else {
+      video.pause();
+    }
   }
-  })
-  }
-  } else {
-  video.pause();
-  }
-  }
-  centerPlay.addEventListener("click", togglePlay)
-  video.addEventListener("click", togglePlay)
+  
+  centerPlay.addEventListener("click", togglePlay);
+  video.addEventListener("click", togglePlay);
+  
   video.addEventListener("play", ()=>{
-  centerPlay.style.display='none'
-  if (mobilePlayToggle){
-  mobilePlayToggle.classList.add('active')
-  mobilePlayToggle.querySelector('.play-icon').style.display = 'none'
-  mobilePlayToggle.querySelector('.pause-icon').style.display = 'block'
-  }
-  requestWakeLock().catch(()=>{})
-  })
+    centerPlay.classList.add('hidden');
+    if (mobilePlayToggle){
+      mobilePlayToggle.querySelector('.play-icon').style.display = 'none';
+      mobilePlayToggle.querySelector('.pause-icon').style.display = 'block';
+      mobilePlayToggle.classList.add('active');
+    }
+  });
+  
   video.addEventListener("pause", ()=>{
-  centerPlay.style.display='flex'
-  if (mobilePlayToggle){
-  mobilePlayToggle.classList.remove('active')
-  mobilePlayToggle.querySelector('.play-icon').style.display = 'block'
-  mobilePlayToggle.querySelector('.pause-icon').style.display = 'none'
-  }
-  releaseWakeLock().catch(()=>{})
-  })
-  // Attempt to lock to landscape on mobile when playback starts
-  video.addEventListener('play', ()=>{ lockLandscapeIfPossible(); ensureMobileLandscape() })
+    centerPlay.classList.remove('hidden');
+    if (mobilePlayToggle){
+      mobilePlayToggle.querySelector('.play-icon').style.display = 'block';
+      mobilePlayToggle.querySelector('.pause-icon').style.display = 'none';
+      mobilePlayToggle.classList.remove('active');
+    }
+  });
   
   if (mobilePlayToggle){
-  const mobilePlayHandler = (e)=>{
-  e.preventDefault()
-  e.stopPropagation()
-  togglePlay()
-  showControls()
-  }
-  mobilePlayToggle.addEventListener('click', mobilePlayHandler, { passive: false })
+    mobilePlayToggle.addEventListener('click', (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      togglePlay();
+      showControls();
+    });
   }
   
-  // Time/seek bar
-  function fmtTime(t){ if(!isFinite(t)) return '00:00'; const h=Math.floor(t/3600); const m=Math.floor((t%3600)/60); const s=Math.floor(t%60); return (h>0?(h+':'):'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') }
+  // Time display
+  function fmtTime(t){ 
+    if(!isFinite(t)) return '00:00'; 
+    const h=Math.floor(t/3600); 
+    const m=Math.floor((t%3600)/60); 
+    const s=Math.floor(t%60); 
+    return (h>0?(h+':'):'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); 
+  }
+  
   function updateTime(){
-  const percent = video.duration ? (video.currentTime / video.duration) * 100 : 0
-  seekProgress.style.width = (percent)+"%"
-  timeLabel.textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(video.duration)
-  }
-  video.addEventListener('timeupdate', updateTime)
-  video.addEventListener('loadedmetadata', updateTime)
-  video.addEventListener('loadedmetadata', ()=>{
-  setTimeout(()=>{
-  const autoplayAttempt = video.play()
-  if (autoplayAttempt && typeof autoplayAttempt.then === 'function'){
-  autoplayAttempt.then(()=>{
-  showControls()
-  requestWakeLock().catch(()=>{})
-  }).catch((err)=>{
-  console.debug('Autoplay failed', err)
-  showControls()
-  })
-  }
-  }, 150)
-  })
-  seekContainer.addEventListener('click', (e)=>{
-  const rect = seekContainer.getBoundingClientRect()
-  const clickPos = (e.clientX - rect.left)/rect.width
-  video.currentTime = clickPos * video.duration
-  })
-  // Touch drag seek
-  let seekingTouch = false
-  let lastTouchX = 0
-  seekContainer.addEventListener('touchstart', (e)=>{ if(!e.touches||!e.touches[0]) return; seekingTouch=true; lastTouchX=e.touches[0].clientX })
-  seekContainer.addEventListener('touchmove', (e)=>{
-  if(!seekingTouch) return; if(!e.touches||!e.touches[0]) return
-  const rect = seekContainer.getBoundingClientRect()
-  const x = e.touches[0].clientX
-  const pos = Math.max(0, Math.min(1, (x - rect.left)/rect.width))
-  video.currentTime = pos * video.duration
-  })
-  seekContainer.addEventListener('touchend', ()=>{ seekingTouch=false })
-  
-  // Volume/mute
-  function syncMuteIcons(){
-  const icon = (video.muted ? '🔇' : '🔊')
-  muteBtn.textContent = icon
-  if (mobileMute){ mobileMute.textContent = icon }
-  }
-  volume.addEventListener('input', ()=>{
-  video.volume = parseFloat(volume.value);
-  video.muted = (video.volume===0);
-  if (video.volume > 0 && video.muted){ video.muted = false }
-  syncMuteIcons()
-  })
-  muteBtn.addEventListener('click', ()=>{
-  video.muted = !video.muted;
-  if (!video.muted && video.volume===0){ video.volume=0.5; volume.value='0.5' }
-  syncMuteIcons()
-  })
-  if (mobileMute){
-  mobileMute.addEventListener('click', ()=>{
-  video.muted = !video.muted;
-  if (!video.muted && video.volume===0){ video.volume=0.5; volume.value='0.5' }
-  syncMuteIcons()
-  })
+    const percent = video.duration ? (video.currentTime / video.duration) * 100 : 0;
+    seekProgress.style.width = (percent)+"%";
+    timeLabel.textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(video.duration);
   }
   
-  if (mobileAudio){
-  mobileAudio.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  audioMenu.classList.toggle('show');
-  qualityMenu.classList.remove('show');
-  speedMenu.classList.remove('show');
-  showControls();
-  })
-  }
-  if (mobileQuality){
-  mobileQuality.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  buildQualityMenu();
-  qualityMenu.classList.toggle('show');
-  audioMenu.classList.remove('show');
-  speedMenu.classList.remove('show');
-  showControls();
-  })
-  }
-  if (mobileSpeed){
-  mobileSpeed.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  buildSpeedMenu();
-  speedMenu.classList.toggle('show');
-  audioMenu.classList.remove('show');
-  qualityMenu.classList.remove('show');
-  showControls();
-  })
-  }
-  if (mobileFullscreen){ mobileFullscreen.addEventListener('click', toggleFullscreen) }
+  video.addEventListener('timeupdate', updateTime);
+  video.addEventListener('loadedmetadata', updateTime);
   
+  // Seek bar
+  seekContainer.addEventListener('click', (e) => {
+    const rect = seekContainer.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    video.currentTime = percent * video.duration;
+  });
   
-  // Fullscreen
-  function requestFullscreenElement(el){
-  if (!el) return Promise.reject(new Error('No element to fullscreen'))
-  if (el.requestFullscreen) return el.requestFullscreen()
-  if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen()
-  if (el.msRequestFullscreen) return el.msRequestFullscreen()
-  return Promise.reject(new Error('Fullscreen API not available'))
-  }
+  // Volume controls
+  volume.addEventListener('input', () => {
+    video.volume = volume.value;
+    video.muted = volume.value == 0;
+    muteBtn.textContent = video.muted ? '🔇' : '🔊';
+  });
   
-  function exitFullscreen(){
-  if (document.exitFullscreen) return document.exitFullscreen()
-  if (document.webkitExitFullscreen) return document.webkitExitFullscreen()
-  if (document.msExitFullscreen) return document.msExitFullscreen()
-  return Promise.resolve()
-  }
+  muteBtn.addEventListener('click', () => {
+    video.muted = !video.muted;
+    muteBtn.textContent = video.muted ? '🔇' : '🔊';
+    volume.value = video.muted ? 0 : video.volume;
+  });
   
-  function enterMobilePseudoFullscreen(){
-  player.classList.add('mobile-fullscreen')
-  body.classList.add('mobile-fs-lock')
-  video.controls = false
-  lockLandscapeIfPossible()
-  showControls()
-  updateOrientationUI()
-  }
-  
-  function exitMobilePseudoFullscreen(){
-  player.classList.remove('mobile-fullscreen')
-  body.classList.remove('mobile-fs-lock')
-  unlockOrientationIfPossible()
-  showControls()
-  updateOrientationUI()
-  }
-  
-  function ensureMobileLandscape(){
-  if (!isMobileCoarse()) return
-  const nativeFs = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement
-  if (nativeFs) return
-  if (!player.classList.contains('mobile-fullscreen')){
-  enterMobilePseudoFullscreen()
-  }
-  }
-  
-  async function toggleFullscreen(){
-  if (isMobileCoarse()){
-  const nativeFs = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement
-  const pseudoFs = player.classList.contains('mobile-fullscreen')
-  if (!nativeFs && !pseudoFs){
-  let nativeSucceeded = false
-  try {
-  await requestFullscreenElement(player)
-  nativeSucceeded = true
-  } catch(_err){
-  try {
-  await requestFullscreenElement(video)
-  nativeSucceeded = true
-  } catch(_err2){}
-  }
-  if (nativeSucceeded){
-  lockLandscapeIfPossible()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  } else {
-  enterMobilePseudoFullscreen()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  showControls()
-  }
-  updateOrientationUI()
-  } else {
-  await exitFullscreen().catch(()=>{})
-  exitMobilePseudoFullscreen()
-  }
-  return
-  }
-  
-  if (!isFullscreenActive()){
-  try {
-  await requestFullscreenElement(player)
-  } catch (_err){
-  await requestFullscreenElement(video).catch(()=>{})
-  }
-  } else {
-  await exitFullscreen()
-  }
-  }
-  fullscreenBtn.addEventListener("click", toggleFullscreen)
-  
-  function onFullscreenChange(){
-  showControls()
-  if (isFullscreenActive()){
-  lockLandscapeIfPossible()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  } else {
-  unlockOrientationIfPossible()
-  exitMobilePseudoFullscreen()
-  }
-  video.controls = false
-  updateOrientationUI()
-  }
-  
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-  document.addEventListener('webkitfullscreenchange', onFullscreenChange)
-  document.addEventListener('msfullscreenchange', onFullscreenChange)
-  video.addEventListener('webkitendfullscreen', ()=>{
-  video.controls = false
-  exitMobilePseudoFullscreen()
-  })
-  window.addEventListener('orientationchange', updateOrientationUI)
-  window.addEventListener('resize', updateOrientationUI)
-  
-  // Subtitle menu toggle
+  // Subtitle menu
   audioBtn.addEventListener('click', (e)=>{
-    e.stopPropagation()
-    buildSubtitleMenu()
-    audioMenu.classList.toggle('show')
-    showControls()
-  })
+    e.stopPropagation();
+    buildSubtitleMenu();
+    audioMenu.classList.toggle('show');
+    showControls();
+  });
+  
+  mobileAudio.addEventListener('click', (e) => {
+    e.stopPropagation();
+    buildSubtitleMenu();
+    audioMenu.classList.toggle('show');
+    showControls();
+  });
   
   // Subtitle selection
   audioMenu.addEventListener('click', (e) => {
@@ -800,167 +431,196 @@ async function handleRequest(request) {
     target.classList.add('active');
     
     audioMenu.classList.remove('show');
-  })
-  
-  document.addEventListener('click', ()=>{ audioMenu.classList.remove('show'); qualityMenu.classList.remove('show'); speedMenu.classList.remove('show') })
+  });
   
   // Quality menu
   function buildQualityMenu(){
-  qualityMenu.innerHTML = ''
-  if (hls && hls.levels && hls.levels.length){
-  const auto = document.createElement('div'); auto.className='menu-item'; auto.textContent='Auto'; auto.dataset.level='-1'; qualityMenu.appendChild(auto)
-  hls.levels.forEach((lvl, i)=>{
-  const label = (lvl.height? (lvl.height+'p') : (Math.round((lvl.bitrate||0)/1000)+'kbps'))
-  const el = document.createElement('div'); el.className='menu-item'; el.textContent=label; el.dataset.level=String(i); qualityMenu.appendChild(el)
-  })
-  const active = hls.currentLevel
-  Array.from(qualityMenu.children).forEach((c)=>{ if (parseInt(c.dataset.level)===active) c.classList.add('active'); if(active===-1 && c.dataset.level==='-1') c.classList.add('active') })
-  } else {
-  const only = document.createElement('div'); only.className='menu-item active'; only.textContent='Auto'; qualityMenu.appendChild(only)
+    qualityMenu.innerHTML = '';
+    if (hls && hls.levels && hls.levels.length){
+      const auto = document.createElement('div'); 
+      auto.className='menu-item'; 
+      auto.textContent='Auto'; 
+      auto.dataset.level='-1'; 
+      qualityMenu.appendChild(auto);
+      
+      hls.levels.forEach((lvl, i)=>{
+        const label = (lvl.height? (lvl.height+'p') : (Math.round((lvl.bitrate||0)/1000)+'kbps'));
+        const el = document.createElement('div'); 
+        el.className='menu-item'; 
+        el.textContent=label; 
+        el.dataset.level=String(i); 
+        qualityMenu.appendChild(el);
+      });
+      
+      const active = hls.currentLevel;
+      Array.from(qualityMenu.children).forEach((c)=>{ 
+        if (parseInt(c.dataset.level)===active) c.classList.add('active'); 
+        if(active===-1 && c.dataset.level==='-1') c.classList.add('active');
+      });
+    } else {
+      const only = document.createElement('div'); 
+      only.className='menu-item active'; 
+      only.textContent='Auto'; 
+      qualityMenu.appendChild(only);
+    }
   }
-  }
-  qualityBtn.addEventListener('click', (e)=>{ e.stopPropagation(); buildQualityMenu(); qualityMenu.classList.toggle('show'); speedMenu.classList.remove('show'); audioMenu.classList.remove('show'); showControls() })
+  
+  qualityBtn.addEventListener('click', (e)=>{ 
+    e.stopPropagation(); 
+    buildQualityMenu(); 
+    qualityMenu.classList.toggle('show'); 
+    speedMenu.classList.remove('show'); 
+    audioMenu.classList.remove('show'); 
+    showControls();
+  });
+  
   qualityMenu.addEventListener('click', (e)=>{
-  const t = e.target; if(!t || !t.classList || !t.classList.contains('menu-item')) return
-  const level = parseInt(t.dataset.level)
-  if (hls){ hls.currentLevel = level }
-  buildQualityMenu()
-  })
+    const t = e.target; 
+    if(!t || !t.classList || !t.classList.contains('menu-item')) return;
+    const level = parseInt(t.dataset.level);
+    if (hls){ hls.currentLevel = level; }
+    buildQualityMenu();
+  });
   
   // Speed menu
-  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
   function buildSpeedMenu(){
-  speedMenu.innerHTML=''
-  const current = video.playbackRate
-  for (let i=0;i<speeds.length;i++){
-  const s = speeds[i]
-  const el = document.createElement('div'); el.className='menu-item'+(Math.abs(s-current)<0.001?' active':''); el.textContent = (s+'x'); el.dataset.speed=String(s); speedMenu.appendChild(el)
+    speedMenu.innerHTML='';
+    const current = video.playbackRate;
+    for (let i=0;i<speeds.length;i++){
+      const s = speeds[i];
+      const el = document.createElement('div'); 
+      el.className='menu-item'+(Math.abs(s-current)<0.001?' active':''); 
+      el.textContent = (s+'x'); 
+      el.dataset.speed=String(s); 
+      speedMenu.appendChild(el);
+    }
   }
-  }
-  speedBtn.addEventListener('click',(e)=>{ e.stopPropagation(); buildSpeedMenu(); speedMenu.classList.toggle('show'); qualityMenu.classList.remove('show'); audioMenu.classList.remove('show'); showControls() })
-  speedMenu.addEventListener('click',(e)=>{ const t=e.target; if(!t||!t.classList||!t.classList.contains('menu-item')) return; const s=parseFloat(t.dataset.speed); video.playbackRate=s; localStorage.setItem(storageKey+':speed', String(s)); buildSpeedMenu() })
   
-  // PiP
+  speedBtn.addEventListener('click',(e)=>{ 
+    e.stopPropagation(); 
+    buildSpeedMenu(); 
+    speedMenu.classList.toggle('show'); 
+    qualityMenu.classList.remove('show'); 
+    audioMenu.classList.remove('show'); 
+    showControls();
+  });
+  
+  speedMenu.addEventListener('click',(e)=>{ 
+    const t=e.target; 
+    if(!t||!t.classList||!t.classList.contains('menu-item')) return; 
+    const s=parseFloat(t.dataset.speed); 
+    video.playbackRate=s; 
+    localStorage.setItem(storageKey+':speed', String(s)); 
+    buildSpeedMenu();
+  });
+  
+  // Picture in Picture
   pipBtn.addEventListener('click', async ()=>{
-  try {
-  if (document.pictureInPictureElement){ await document.exitPictureInPicture() } else if (video.requestPictureInPicture){ await video.requestPictureInPicture() }
-  } catch(_e){}
-  })
+    try {
+      if (document.pictureInPictureElement){ 
+        await document.exitPictureInPicture();
+      } else if (video.requestPictureInPicture){ 
+        await video.requestPictureInPicture();
+      }
+    } catch(e){ console.error(e); }
+  });
   
-  // Auto-hide controls like Netflix
-  function isFullscreenActive(){
-  return Boolean(document.fullscreenElement || document.webkitFullscreenElement || player.classList.contains('mobile-fullscreen'))
+  // Fullscreen
+  async function toggleFullscreen(){
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await player.requestFullscreen();
+      }
+    } catch(e){ console.error(e); }
   }
   
+  fullscreenBtn.addEventListener("click", toggleFullscreen);
+  mobileFullscreen.addEventListener("click", toggleFullscreen);
+  
+  // Controls visibility
   function showControls(){
-  player.classList.add('show-controls')
-  player.classList.remove('hide-cursor')
-  if (controlsHideTimer){
-  clearTimeout(controlsHideTimer)
-  controlsHideTimer = null
-  }
-  const autoHideDelay = 3000
-  controlsHideTimer = setTimeout(() => {
-  // keep controls visible if audio menu is open or when fullscreen toggles mid-timeout
-  if (audioMenu.classList.contains('show') || video.paused){
-  player.classList.add('show-controls')
-  player.classList.remove('hide-cursor')
-  return
-  }
-  player.classList.remove('show-controls')
-  player.classList.add('hide-cursor')
-  }, autoHideDelay)
+    player.classList.add('show-controls');
+    player.classList.remove('hide-cursor');
+    if (controlsHideTimer){
+      clearTimeout(controlsHideTimer);
+      controlsHideTimer = null;
+    }
+    const autoHideDelay = 3000;
+    controlsHideTimer = setTimeout(() => {
+      if (audioMenu.classList.contains('show') || video.paused){
+        player.classList.add('show-controls');
+        player.classList.remove('hide-cursor');
+        return;
+      }
+      player.classList.remove('show-controls');
+      player.classList.add('hide-cursor');
+    }, autoHideDelay);
   }
   
-  ;['mousemove','pointermove','touchstart','touchmove'].forEach(evt => {
-  player.addEventListener(evt, () => {
-  showControls()
-  }, { passive: true })
-  })
+  ['mousemove','pointermove','touchstart','touchmove'].forEach(evt => {
+    player.addEventListener(evt, showControls, { passive: true });
+  });
+  
+  document.addEventListener('click', ()=>{ 
+    audioMenu.classList.remove('show'); 
+    qualityMenu.classList.remove('show'); 
+    speedMenu.classList.remove('show');
+  });
+  
+  // Keyboard controls
   document.addEventListener('keydown', (e)=>{
-  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return
-  showControls()
-  if (e.code === 'Space'){ e.preventDefault(); togglePlay() }
-  if (e.key === 'ArrowLeft'){ video.currentTime=Math.max(0,video.currentTime-10) }
-  if (e.key === 'ArrowRight'){ video.currentTime=Math.min(video.duration,video.currentTime+10) }
-  if (e.key === 'f' || e.key === 'F'){ toggleFullscreen() }
-  if (e.key === 'm' || e.key === 'M'){ video.muted=!video.muted; muteBtn.textContent = (video.muted?'🔇':'🔊') }
-  })
-  
-  document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !video.paused){
-  requestWakeLock().catch(()=>{})
-  } else {
-  releaseWakeLock().catch(()=>{})
-  }
-  })
-  
-  // Spinner & buffering
-  function showSpinner(){ spinner.style.display='block' }
-  function hideSpinner(){ spinner.style.display='none' }
-  function showBranding(){ if (brandingOverlay){ brandingOverlay.classList.remove('hidden') } }
-  function hideBranding(){ if (brandingOverlay){ brandingOverlay.classList.add('hidden') } }
-  video.addEventListener('waiting', showSpinner)
-  video.addEventListener('stalled', showSpinner)
-  video.addEventListener('playing', hideSpinner)
-  video.addEventListener('canplay', hideSpinner)
-  video.addEventListener('playing', hideBranding)
-  video.addEventListener('canplay', hideBranding)
-  video.addEventListener('waiting', showBranding)
-  
-  // Gestures: double-tap seek, dblclick fullscreen
-  function dblSeek(dir){ video.currentTime = Math.max(0, Math.min(video.duration||Infinity, video.currentTime + (dir*10))) }
-  function showSeekBadge(dir){
-  const el = dir < 0 ? seekBadgeLeft : seekBadgeRight
-  if (!el) return
-  el.classList.remove('show')
-  void el.offsetWidth
-  el.classList.add('show')
-  }
-  zoneLeft.addEventListener('dblclick', ()=>{ dblSeek(-1); showSeekBadge(-1) })
-  zoneRight.addEventListener('dblclick', ()=>{ dblSeek(1); showSeekBadge(1) })
-  
-  // Mobile double-tap detection
-  let lastTapLeft = 0
-  let lastTapRight = 0
-  function handleZoneTap(side){
-  const now = Date.now()
-  if (side === 'left'){
-  if (now - lastTapLeft < 300){ dblSeek(-1); showSeekBadge(-1) }
-  lastTapLeft = now
-  } else {
-  if (now - lastTapRight < 300){ dblSeek(1); showSeekBadge(1) }
-  lastTapRight = now
-  }
-  }
-  zoneLeft.addEventListener('touchstart', ()=> handleZoneTap('left'))
-  zoneRight.addEventListener('touchstart', ()=> handleZoneTap('right'))
-  video.addEventListener('dblclick', toggleFullscreen)
-  
-  // Persistence: volume, speed, position (per TMDB)
-  const savedVol = parseFloat(localStorage.getItem(storageKey+':volume')||'1')
-  if (!isNaN(savedVol)){ volume.value=String(savedVol); video.volume=savedVol; video.muted=(savedVol===0); muteBtn.textContent=(video.muted?'🔇':'🔊') }
-  const savedSpd = parseFloat(localStorage.getItem(storageKey+':speed')||'1')
-  if (!isNaN(savedSpd)){ video.playbackRate = savedSpd }
-  const savedPos = parseFloat(localStorage.getItem(storageKey+':time')||'NaN')
-  if (!isNaN(savedPos)){
-  video.addEventListener('loadedmetadata', ()=>{ if (savedPos>0 && savedPos < (video.duration||Infinity)-2){ video.currentTime = savedPos } })
-  }
-  setInterval(()=>{ if(!video.seeking && isFinite(video.currentTime)){ localStorage.setItem(storageKey+':time', String(video.currentTime)) } }, 3000)
-  volume.addEventListener('change', ()=>{ localStorage.setItem(storageKey+':volume', String(video.volume)) })
-  
-  // Mobile button handlers
-  mobileAudio.addEventListener('click', (e) => {
-    e.stopPropagation()
-    buildSubtitleMenu()
-    audioMenu.classList.toggle('show')
-    showControls()
-  })
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    showControls();
+    if (e.code === 'Space'){ e.preventDefault(); togglePlay(); }
+    if (e.key === 'ArrowLeft'){ video.currentTime=Math.max(0,video.currentTime-10); }
+    if (e.key === 'ArrowRight'){ video.currentTime=Math.min(video.duration,video.currentTime+10); }
+    if (e.key === 'f' || e.key === 'F'){ toggleFullscreen(); }
+    if (e.key === 'm' || e.key === 'M'){ 
+      video.muted=!video.muted; 
+      muteBtn.textContent = (video.muted?'🔇':'🔊');
+    }
+  });
   
   // Initialize player
-  initPlayer()
-  buildSubtitleMenu()
-  showControls()
+  initPlayer();
+  buildSubtitleMenu();
+  showControls();
+  
+  // Load saved settings
+  const savedVol = parseFloat(localStorage.getItem(storageKey+':volume')||'1');
+  if (!isNaN(savedVol)){ 
+    volume.value=String(savedVol); 
+    video.volume=savedVol; 
+    video.muted=(savedVol===0); 
+    muteBtn.textContent=(video.muted?'🔇':'🔊');
+  }
+  
+  const savedSpd = parseFloat(localStorage.getItem(storageKey+':speed')||'1');
+  if (!isNaN(savedSpd)){ video.playbackRate = savedSpd; }
+  
+  const savedPos = parseFloat(localStorage.getItem(storageKey+':time')||'NaN');
+  if (!isNaN(savedPos)){
+    video.addEventListener('loadedmetadata', ()=>{ 
+      if (savedPos>0 && savedPos < (video.duration||Infinity)-2){ 
+        video.currentTime = savedPos; 
+      } 
+    });
+  }
+  
+  // Save settings
+  setInterval(()=>{ 
+    if(!video.seeking && isFinite(video.currentTime)){ 
+      localStorage.setItem(storageKey+':time', String(video.currentTime)); 
+    } 
+  }, 3000);
+  
+  volume.addEventListener('change', ()=>{ 
+    localStorage.setItem(storageKey+':volume', String(video.volume)); 
+  });
+  
     </script>
   </body>
   </html>`
@@ -971,4 +631,3 @@ async function handleRequest(request) {
     return new Response(`Error: ${err.message}`, { status: 500 })
   }
 }
-  
