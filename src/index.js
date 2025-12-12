@@ -24,56 +24,92 @@ async function handleProxy(request) {
     return new Response('Missing url parameter', { status: 400 })
   }
   
-  try {
-    // Copy range header if present for video seeking
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Referer': 'https://example.com/',
-      'Accept': '*/*'
-    }
-    
-    const rangeHeader = request.headers.get('Range')
-    if (rangeHeader) {
-      headers['Range'] = rangeHeader
-    }
-    
-    const response = await fetch(targetUrl, { headers })
-    
-    const responseHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-      'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
-      'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
-      'Cache-Control': 'public, max-age=3600'
-    }
-    
-    // Copy important headers
-    const contentType = response.headers.get('Content-Type')
-    if (contentType) responseHeaders['Content-Type'] = contentType
-    
-    const contentRange = response.headers.get('Content-Range')
-    if (contentRange) responseHeaders['Content-Range'] = contentRange
-    
-    const contentLength = response.headers.get('Content-Length')
-    if (contentLength) responseHeaders['Content-Length'] = contentLength
-    
-    const acceptRanges = response.headers.get('Accept-Ranges')
-    if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges
-    
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders
-    })
-  } catch (error) {
-    return new Response(`Proxy error: ${error.message}`, { 
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'text/plain'
+  // Try multiple user agents and headers to bypass restrictions
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
+  ]
+  
+  const referers = [
+    'https://www.google.com/',
+    'https://www.youtube.com/',
+    'https://player.vimeo.com/',
+    'https://www.dailymotion.com/'
+  ]
+  
+  for (let i = 0; i < userAgents.length; i++) {
+    try {
+      const headers = {
+        'User-Agent': userAgents[i],
+        'Referer': referers[i % referers.length],
+        'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, application/octet-stream, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'identity',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'cross-site'
       }
-    })
+      
+      const rangeHeader = request.headers.get('Range')
+      if (rangeHeader) {
+        headers['Range'] = rangeHeader
+      }
+      
+      const response = await fetch(targetUrl, { 
+        headers,
+        cf: {
+          // Cloudflare-specific options
+          cacheTtl: 3600,
+          cacheEverything: true
+        }
+      })
+      
+      if (response.ok) {
+        const responseHeaders = {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
+          'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+          'Cache-Control': 'public, max-age=3600'
+        }
+        
+        // Copy important headers
+        const contentType = response.headers.get('Content-Type')
+        if (contentType) responseHeaders['Content-Type'] = contentType
+        else responseHeaders['Content-Type'] = 'application/vnd.apple.mpegurl'
+        
+        const contentRange = response.headers.get('Content-Range')
+        if (contentRange) responseHeaders['Content-Range'] = contentRange
+        
+        const contentLength = response.headers.get('Content-Length')
+        if (contentLength) responseHeaders['Content-Length'] = contentLength
+        
+        const acceptRanges = response.headers.get('Accept-Ranges')
+        if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges
+        
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders
+        })
+      }
+    } catch (error) {
+      console.log(`Attempt ${i + 1} failed:`, error.message)
+      continue
+    }
   }
+  
+  // If all attempts fail, return error
+  return new Response('All proxy attempts failed - stream may be unavailable', { 
+    status: 503,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'text/plain'
+    }
+  })
 }
 
 async function handleRequest(request) {
@@ -126,6 +162,7 @@ async function handleRequest(request) {
     const tracks = data.results.streamingLink.tracks || []
     const intro = data.results.streamingLink.intro
     const outro = data.results.streamingLink.outro
+    const servers = data.results.servers || []
     
     if (!videoLink) {
       return new Response("No video link available", { status: 404 })
@@ -309,11 +346,46 @@ async function handleRequest(request) {
   const subtitleTracks = ${JSON.stringify(tracks)};
   const introData = ${JSON.stringify(intro)};
   const outroData = ${JSON.stringify(outro)};
+  const availableServers = ${JSON.stringify(servers)};
+  const currentId = ${JSON.stringify(id)};
+  const currentType = ${JSON.stringify(type)};
   const storageKey = ${JSON.stringify(storageKey)};
   
   let currentStreamUrl = initialStreamUrl;
   let hls = null;
   let controlsHideTimer = null;
+  let currentServerIndex = 0;
+  
+  // Function to try alternative servers
+  async function tryAlternativeServer() {
+    if (!Array.isArray(availableServers) || currentServerIndex >= availableServers.length - 1) {
+      return null;
+    }
+    
+    currentServerIndex++;
+    const nextServer = availableServers[currentServerIndex];
+    
+    if (!nextServer || !nextServer.serverName) {
+      return null;
+    }
+    
+    try {
+      console.log('Trying alternative server:', nextServer.serverName);
+      const backendUrl = \`https://backednstreaminggggggg.onrender.com/api/stream?id=\${encodeURIComponent(currentId)}&server=\${encodeURIComponent(nextServer.serverName.toLowerCase())}&type=\${encodeURIComponent(currentType)}\`;
+      
+      const response = await fetch(backendUrl);
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (!data.success || !data.results?.streamingLink?.link?.file) return null;
+      
+      const newStreamUrl = '/proxy?url=' + encodeURIComponent(data.results.streamingLink.link.file);
+      return newStreamUrl;
+    } catch (error) {
+      console.error('Failed to fetch alternative server:', error);
+      return null;
+    }
+  }
   
   // Subtitle functions
   function buildSubtitleMenu(){
@@ -379,22 +451,49 @@ async function handleRequest(request) {
         buildSubtitleMenu();
       });
       
-      hls.on(Hls.Events.ERROR, (event, data) => {
+      hls.on(Hls.Events.ERROR, async (event, data) => {
         console.error('HLS Error:', data);
         if (data.fatal) {
           switch(data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              // Try reloading or fallback
-              console.log('Network error, retrying...');
-              hls.startLoad();
+              console.log('Network error, trying alternative server...');
+              const altUrl = await tryAlternativeServer();
+              if (altUrl) {
+                currentStreamUrl = altUrl;
+                hls.loadSource(currentStreamUrl);
+              } else {
+                hls.startLoad();
+              }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               hls.recoverMediaError();
               break;
             default:
-              hls.destroy();
-              console.log('HLS failed, trying native video element...');
-              video.src = currentStreamUrl;
+              console.log('HLS failed, trying alternative server...');
+              const fallbackUrl = await tryAlternativeServer();
+              if (fallbackUrl) {
+                hls.destroy();
+                hls = new Hls({
+                  enableWorker: false,
+                  capLevelToPlayerSize: false,
+                  lowLatencyMode: false,
+                  startLevel: 0,
+                  maxBufferLength: 30,
+                  maxLiveSyncPlaybackRate: 1.5,
+                  liveDurationInfinity: true,
+                  startFragPrefetch: false,
+                  backBufferLength: 60,
+                  xhrSetup: function(xhr, url) {
+                    xhr.withCredentials = false;
+                  }
+                });
+                hls.loadSource(fallbackUrl);
+                hls.attachMedia(video);
+              } else {
+                hls.destroy();
+                console.log('All servers failed, trying native video element...');
+                video.src = currentStreamUrl;
+              }
               break;
           }
         }
