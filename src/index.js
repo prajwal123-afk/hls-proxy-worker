@@ -4,7 +4,6 @@ addEventListener("fetch", event => {
 
 async function handleRequest(request) {
   const url = new URL(request.url)
-  const path = url.pathname
   
   // Get streaming parameters
   const id = url.searchParams.get("id")
