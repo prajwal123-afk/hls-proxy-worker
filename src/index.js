@@ -4,6 +4,78 @@ export default {
   }
 };
 
+async function handleProxy(request) {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+      }
+    })
+  }
+  
+  const url = new URL(request.url)
+  const targetUrl = url.searchParams.get('url')
+  
+  if (!targetUrl) {
+    return new Response('Missing url parameter', { status: 400 })
+  }
+  
+  try {
+    // Copy range header if present for video seeking
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Referer': 'https://example.com/',
+      'Accept': '*/*'
+    }
+    
+    const rangeHeader = request.headers.get('Range')
+    if (rangeHeader) {
+      headers['Range'] = rangeHeader
+    }
+    
+    const response = await fetch(targetUrl, { headers })
+    
+    const responseHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
+      'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+      'Cache-Control': 'public, max-age=3600'
+    }
+    
+    // Copy important headers
+    const contentType = response.headers.get('Content-Type')
+    if (contentType) responseHeaders['Content-Type'] = contentType
+    
+    const contentRange = response.headers.get('Content-Range')
+    if (contentRange) responseHeaders['Content-Range'] = contentRange
+    
+    const contentLength = response.headers.get('Content-Length')
+    if (contentLength) responseHeaders['Content-Length'] = contentLength
+    
+    const acceptRanges = response.headers.get('Accept-Ranges')
+    if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges
+    
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders
+    })
+  } catch (error) {
+    return new Response(`Proxy error: ${error.message}`, { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'text/plain'
+      }
+    })
+  }
+}
+
 async function handleRequest(request) {
   const url = new URL(request.url)
   const path = url.pathname
@@ -11,6 +83,11 @@ async function handleRequest(request) {
   // Handle favicon request
   if (path === '/favicon.ico') {
     return new Response('', { status: 204 })
+  }
+  
+  // Handle proxy requests
+  if (path === '/proxy') {
+    return handleProxy(request)
   }
   
   // Get streaming parameters
@@ -227,7 +304,7 @@ async function handleRequest(request) {
   const player = document.getElementById("player");
   const body = document.body;
   
-  const initialStreamUrl = ${JSON.stringify(videoLink)};
+  const initialStreamUrl = '/proxy?url=' + encodeURIComponent(${JSON.stringify(directLink)});
   const directStreamUrl = ${JSON.stringify(directLink)};
   const subtitleTracks = ${JSON.stringify(tracks)};
   const introData = ${JSON.stringify(intro)};
@@ -268,7 +345,7 @@ async function handleRequest(request) {
       const trackElement = document.createElement('track');
       trackElement.kind = track.kind || 'captions';
       trackElement.label = track.label;
-      trackElement.src = track.proxy || track.file;
+      trackElement.src = '/proxy?url=' + encodeURIComponent(track.file);
       trackElement.default = track.default || false;
       video.appendChild(trackElement);
     });
@@ -278,15 +355,19 @@ async function handleRequest(request) {
   function initPlayer(){
     if (window.Hls && Hls.isSupported()){
       hls = new Hls({
-        enableWorker: true,
+        enableWorker: false, // Disable worker to avoid tracking prevention issues
         capLevelToPlayerSize: false,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
         startLevel: 0,
-        maxBufferLength: 12,
+        maxBufferLength: 30,
         maxLiveSyncPlaybackRate: 1.5,
         liveDurationInfinity: true,
-        startFragPrefetch: true,
-        backBufferLength: 30
+        startFragPrefetch: false,
+        backBufferLength: 60,
+        xhrSetup: function(xhr, url) {
+          // Add CORS headers for all requests
+          xhr.withCredentials = false;
+        }
       });
       
       hls.loadSource(currentStreamUrl);
@@ -303,27 +384,17 @@ async function handleRequest(request) {
         if (data.fatal) {
           switch(data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              // Try direct URL if proxy fails
-              if (currentStreamUrl !== directStreamUrl && directStreamUrl) {
-                console.log('Trying direct stream URL...');
-                currentStreamUrl = directStreamUrl;
-                hls.loadSource(currentStreamUrl);
-              } else {
-                hls.startLoad();
-              }
+              // Try reloading or fallback
+              console.log('Network error, retrying...');
+              hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               hls.recoverMediaError();
               break;
             default:
               hls.destroy();
-              // Try direct URL as fallback
-              if (currentStreamUrl !== directStreamUrl && directStreamUrl) {
-                console.log('Fallback to direct stream URL...');
-                video.src = directStreamUrl;
-              } else {
-                video.src = currentStreamUrl;
-              }
+              console.log('HLS failed, trying native video element...');
+              video.src = currentStreamUrl;
               break;
           }
         }
