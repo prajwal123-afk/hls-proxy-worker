@@ -6,6 +6,12 @@ export default {
 
 async function handleRequest(request) {
   const url = new URL(request.url)
+  const path = url.pathname
+  
+  // Handle favicon request
+  if (path === '/favicon.ico') {
+    return new Response('', { status: 204 })
+  }
   
   // Get streaming parameters
   const id = url.searchParams.get("id")
@@ -39,6 +45,7 @@ async function handleRequest(request) {
     
     const streamData = data.results.streamingLink
     const videoLink = streamData.link?.proxy || streamData.link?.file || ""
+    const directLink = streamData.link?.file || ""
     const tracks = data.results.streamingLink.tracks || []
     const intro = data.results.streamingLink.intro
     const outro = data.results.streamingLink.outro
@@ -221,6 +228,7 @@ async function handleRequest(request) {
   const body = document.body;
   
   const initialStreamUrl = ${JSON.stringify(videoLink)};
+  const directStreamUrl = ${JSON.stringify(directLink)};
   const subtitleTracks = ${JSON.stringify(tracks)};
   const introData = ${JSON.stringify(intro)};
   const outroData = ${JSON.stringify(outro)};
@@ -295,14 +303,27 @@ async function handleRequest(request) {
         if (data.fatal) {
           switch(data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad();
+              // Try direct URL if proxy fails
+              if (currentStreamUrl !== directStreamUrl && directStreamUrl) {
+                console.log('Trying direct stream URL...');
+                currentStreamUrl = directStreamUrl;
+                hls.loadSource(currentStreamUrl);
+              } else {
+                hls.startLoad();
+              }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               hls.recoverMediaError();
               break;
             default:
               hls.destroy();
-              video.src = currentStreamUrl;
+              // Try direct URL as fallback
+              if (currentStreamUrl !== directStreamUrl && directStreamUrl) {
+                console.log('Fallback to direct stream URL...');
+                video.src = directStreamUrl;
+              } else {
+                video.src = currentStreamUrl;
+              }
               break;
           }
         }
@@ -377,7 +398,10 @@ async function handleRequest(request) {
   seekContainer.addEventListener('click', (e) => {
     const rect = seekContainer.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    video.currentTime = percent * video.duration;
+    const newTime = percent * video.duration;
+    if (isFinite(newTime) && newTime >= 0 && newTime <= video.duration) {
+      video.currentTime = newTime;
+    }
   });
   
   // Volume controls
@@ -575,8 +599,14 @@ async function handleRequest(request) {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     showControls();
     if (e.code === 'Space'){ e.preventDefault(); togglePlay(); }
-    if (e.key === 'ArrowLeft'){ video.currentTime=Math.max(0,video.currentTime-10); }
-    if (e.key === 'ArrowRight'){ video.currentTime=Math.min(video.duration,video.currentTime+10); }
+    if (e.key === 'ArrowLeft'){ 
+      const newTime = Math.max(0, video.currentTime - 10);
+      if (isFinite(newTime)) video.currentTime = newTime;
+    }
+    if (e.key === 'ArrowRight'){ 
+      const newTime = Math.min(video.duration || 0, video.currentTime + 10);
+      if (isFinite(newTime)) video.currentTime = newTime;
+    }
     if (e.key === 'f' || e.key === 'F'){ toggleFullscreen(); }
     if (e.key === 'm' || e.key === 'M'){ 
       video.muted=!video.muted; 
